@@ -1,0 +1,34 @@
+#cards {
+    /* 軸：row */
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.card {
+    /* 卡片在容器裡的排版 */
+    flex: 7% 0 1;
+    height: 8vw;
+    border: 2px solid #e0e0e0;
+    /* vw 是相對高度，100vw = 一個完整的視窗大小 */
+    /* flex: flex-basis （卡片裡每張的比例） flex-grow（剩餘空間）flex-shrink （容器不夠會不會收縮）0跟1是加權數*/
+    /* 卡片內部元素排版 */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    margin: 2px;
+    box-sizing: border-box;
+}
+
+.card img {
+    max-width: 30%;
+    align-self: center;
+}
+
+.card p {
+    margin: 3px;
+    font-size: 10px;
+}
+
+.card p:last-child {
+    transform: rotate(180deg);
+}
