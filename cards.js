@@ -1,15 +1,18 @@
-let cards = [
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-    32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52,
-];
-let revealedCards = [1, 2];
-let score = 0;
+const GAME_STATE = {
+    FirstCardAwaits: 'FirstCardAwaits',
+    SecondCardAwaits: 'SecondCardAwaits',
+    CardsMatchFailed: 'CardsMatchFailed',
+    CardsMatched: 'CardsMatched',
+    GameFinished: 'GameFinished',
+};
 const Symbols = [
     'https://cdn-icons-png.flaticon.com/512/1/1438.png', // 黑桃
     'https://image.flaticon.com/icons/svg/105/105220.svg', // 愛心
     'https://image.flaticon.com/icons/svg/105/105212.svg', // 方塊
-    'https://cdn-icons-png.flaticon.com/512/220/220757.png', // 梅花
+    'https://cdn-icons-png.flaticon.com/512/105/105219.png', // 梅花
 ];
+
+//畫面渲染
 const view = {
     getCardElement(index) {
         return `<div data-index="${index}" class="card back"></div>`;
@@ -17,12 +20,12 @@ const view = {
     getCardContent(index) {
         const number = this.transformNumber((index % 13) + 1);
         const symbol = Symbols[Math.floor(index / 13)];
-        return `<p>${number}</p>
+        return `
+        <p>${number}</p>
         <img src="${symbol}" />
         <p>${number}</p>
     `;
     },
-
     transformNumber(number) {
         switch (number) {
             case 1:
@@ -37,29 +40,103 @@ const view = {
                 return number;
         }
     },
-
-    displayCards() {
+    displayCards(indexes) {
         const rootElement = document.querySelector('#cards');
-        rootElement.innerHTML = utility
-            .getRandomNumberArray(52)
-            .map((index) => this.getCardElement(index))
-            .join('');
+        rootElement.innerHTML = indexes.map((index) => this.getCardElement(index)).join('');
+    },
+    flipCards(...cards) {
+        cards.map((card) => {
+            if (card.classList.contains('back')) {
+                card.classList.remove('back');
+                card.innerHTML = this.getCardContent(Number(card.dataset.index));
+                return;
+            }
+            card.classList.add('back');
+            card.innerHTML = null;
+        });
+    },
+    pairCards(...cards) {
+        cards.map((card) => {
+            card.classList.add('paired');
+        });
     },
 
-    flipCard(card) {
-        console.log(card);
-        if (card.classList.contains('back')) {
-            // 回傳正面
-            card.classList.remove('back');
-            card.innerHTML = this.getCardContent(Number(card.dataset.index)); // 暫時給定 10
-            return;
-        }
-        // 回傳背面
-        card.classList.add('back');
-        card.innerHTML = null;
+    renderScore(score) {
+        document.querySelector('.score').innerHTML = `Score: ${score}`;
+    },
+
+    renderTriedTimes(times) {
+        document.querySelector('.tried').innerHTML = `You've tried: ${times} times`;
+    },
+
+    appendWrongAnimation(...cards) {
+        cards.map((card) => {
+            card.classList.add('wrong');
+            card.addEventListener('animationend', (event) => event.target.classList.remove('wrong'), { once: true });
+        });
     },
 };
 
+//資料管理
+const model = {
+    revealedCards: [],
+    isRevealedCardsMatched() {
+        return this.revealedCards[0].dataset.index % 13 === this.revealedCards[1].dataset.index % 13;
+    },
+
+    score: 0,
+    triedTimes: 0,
+};
+
+//遊戲狀態
+const controller = {
+    currentState: GAME_STATE.FirstCardAwaits,
+    generateCards() {
+        view.displayCards(utility.getRandomNumberArray(52));
+    },
+    dispatchCardAction(card) {
+        if (!card.classList.contains('back')) {
+            return;
+        }
+        switch (this.currentState) {
+            case GAME_STATE.FirstCardAwaits:
+                view.flipCards(card);
+                model.revealedCards.push(card);
+                this.currentState = GAME_STATE.SecondCardAwaits;
+                break;
+            case GAME_STATE.SecondCardAwaits:
+                view.renderTriedTimes(++model.triedTimes);
+                view.flipCards(card);
+                model.revealedCards.push(card);
+                // 判斷配對是否成功
+                if (model.isRevealedCardsMatched()) {
+                    // 配對成功
+                    view.renderScore((model.score += 10));
+                    this.currentState = GAME_STATE.CardsMatched;
+                    view.pairCards(model.revealedCards[0]);
+                    view.pairCards(model.revealedCards[1]);
+                    model.revealedCards = [];
+                    this.currentState = GAME_STATE.FirstCardAwaits;
+                } else {
+                    // 配對失敗
+                    this.currentState = GAME_STATE.CardsMatchFailed;
+                    view.appendWrongAnimation(...model.revealedCards);
+                    setTimeout(this.resetCards, 1000);
+                }
+                break;
+        }
+        console.log('this.currentState', this.currentState);
+        console.log(
+            'revealedCards',
+            model.revealedCards.map((card) => card.dataset.index)
+        );
+    },
+    resetCards() {
+        view.flipCards(...model.revealedCards);
+        model.revealedCards = [];
+        controller.currentState = GAME_STATE.FirstCardAwaits;
+    },
+};
 const utility = {
     getRandomNumberArray(count) {
         const number = Array.from(Array(count).keys());
@@ -70,12 +147,9 @@ const utility = {
         return number;
     },
 };
-
-view.displayCards();
-
-//NodeList
+controller.generateCards();
 document.querySelectorAll('.card').forEach((card) => {
     card.addEventListener('click', (event) => {
-        view.flipCard(card);
+        controller.dispatchCardAction(card);
     });
 });
